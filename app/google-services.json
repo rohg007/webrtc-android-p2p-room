@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "428825600001",
+    "firebase_url": "https://huddle01sample-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "huddle01sample",
+    "storage_bucket": "huddle01sample.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:428825600001:android:721c7667bcdad6db0f2000",
+        "android_client_info": {
+          "package_name": "com.rohg007.android.huddle01sample"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "428825600001-0nac71mb1v0vj1m9uokg9gsm2gfa618j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYWd3_yNpZBESy8330-797iQgq9tnlBBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "428825600001-0nac71mb1v0vj1m9uokg9gsm2gfa618j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
