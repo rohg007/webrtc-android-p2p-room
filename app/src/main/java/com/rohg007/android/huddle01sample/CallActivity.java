@@ -473,10 +473,25 @@ public class CallActivity extends AppCompatActivity {
             socket.disconnect();
         }
         // cleanup tasks
-        peerConnection.close();
-        yourSurfaceView.release();
-        friendSurfaceView.release();
+        cleanup();
         finish();
+    }
+
+    void cleanup(){
+        if(peerConnection!=null){
+            peerConnection.close();
+            peerConnection = null;
+        }
+        if(yourSurfaceView!=null)
+            yourSurfaceView.release();
+        if(friendSurfaceView!=null)
+            friendSurfaceView.release();
+        if(localAudioTrack!=null)
+            localAudioTrack.dispose();
+        if(audioSource!=null)
+            audioSource.dispose();
+        if(videoTrackFromCamera!=null)
+            videoTrackFromCamera.dispose();
     }
 
     private void showToast(String message){
