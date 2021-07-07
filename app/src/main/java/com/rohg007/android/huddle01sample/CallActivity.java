@@ -16,21 +16,16 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Toolbar;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.rohg007.android.huddle01sample.models.RoomConnection;
 import com.rohg007.android.huddle01sample.viewmodels.CameraViewModel;
 import com.rohg007.android.huddle01sample.viewmodels.RoomConnectionViewModel;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.Camera1Enumerator;
@@ -53,6 +48,7 @@ import org.webrtc.VideoTrack;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
+import static com.rohg007.android.huddle01sample.Constants.AUDIO_TRACK_ID;
 import static com.rohg007.android.huddle01sample.Constants.FPS;
 import static com.rohg007.android.huddle01sample.Constants.RC_CALL;
 import static com.rohg007.android.huddle01sample.Constants.SOCKET_URL;
@@ -86,6 +82,9 @@ public class CallActivity extends AppCompatActivity {
     private RoomConnectionViewModel roomConnectionViewModel;
     private CameraViewModel cameraViewModel;
 
+    private TextView yourNameTv;
+    private TextView friendNameTv;
+
     private static final String TAG = CallActivity.class.getSimpleName();
 
     @Override
@@ -102,6 +101,9 @@ public class CallActivity extends AppCompatActivity {
         roomConnectionViewModel = new ViewModelProvider(this).get(RoomConnectionViewModel.class);
         yourSurfaceView = findViewById(R.id.your_surface);
         friendSurfaceView = findViewById(R.id.friend_surface);
+        yourNameTv = findViewById(R.id.your_name_tv);
+        friendNameTv = findViewById(R.id.friend_name_tv);
+        roomConnectionViewModel.getDataFromFirebase(roomName).observe(this, this::setParticipantNames);
 
         ExtendedFloatingActionButton hangupButton = findViewById(R.id.hangup_button);
         hangupButton.setOnClickListener(view -> disconnectCall());
@@ -111,27 +113,51 @@ public class CallActivity extends AppCompatActivity {
         go();
     }
 
+    private void setParticipantNames(RoomConnection roomConnection){
+        if(roomConnection!=null){
+            if(roomConnection.getParticipant1()!=null){
+                if(!roomConnection.getParticipant1().getId().equals(Build.ID)) {
+                    yourNameTv.setText(roomConnection.getParticipant1().getDeviceName());
+                    if(roomConnection.getParticipant2()!=null){
+                        friendNameTv.setText(roomConnection.getParticipant2().getDeviceName());
+                    }
+                }
+            }
+            if(roomConnection.getParticipant2()!=null){
+                if(!roomConnection.getParticipant2().getId().equals(Build.ID)) {
+                    yourNameTv.setText(roomConnection.getParticipant2().getDeviceName());
+                    if(roomConnection.getParticipant1()!=null){
+                        friendNameTv.setText(roomConnection.getParticipant1().getDeviceName());
+                    }
+                }
+            }
+        }
+    }
+
+    // Starting point, contains core sequence, requires CALL permissions before execution
     @AfterPermissionGranted(RC_CALL)
     private void go(){
         String[] perms = {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
         if (EasyPermissions.hasPermissions(this, perms)) {
-            connectToSignallingServer();
+            establishServerConnection();
             initSurfaceViews();
-            initializePeerConnectionFactory();
-            createVideoTrackFromCameraAndShowIt();
-            initializePeerConnections();
-            startStreamingVideo();
+            setPeerConnectionFactory();
+            displayLocalVideoTrack();
+            initPeerConnection();
+            addStreamToPeerConnection();
         } else {
             EasyPermissions.requestPermissions(this, "Need some permissions", RC_CALL, perms);
         }
     }
 
+    // Executed when required permissions are granted/denied by user
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
     }
 
+    // initializes video rendering views, Uses EglBase surfaces for rendering
     private void initSurfaceViews(){
         eglBase = EglBase.create();
         yourSurfaceView.init(eglBase.getEglBaseContext(), null);
@@ -143,13 +169,8 @@ public class CallActivity extends AppCompatActivity {
         friendSurfaceView.setMirror(true);
     }
 
-    private void initializePeerConnectionFactory() {
-        PeerConnectionFactory.initializeAndroidGlobals(this, true, true, true);
-        factory = new PeerConnectionFactory(null);
-        factory.setVideoHwAccelerationOptions(eglBase.getEglBaseContext(), eglBase.getEglBaseContext());
-    }
-
-    private void createVideoTrackFromCameraAndShowIt() {
+    // renders video stream from your camera to your surface
+    private void displayLocalVideoTrack() {
         audioConstraints = new MediaConstraints();
         VideoCapturer videoCapturer = createVideoCapturer();
         VideoSource videoSource = factory.createVideoSource(videoCapturer);
@@ -160,9 +181,10 @@ public class CallActivity extends AppCompatActivity {
         videoTrackFromCamera.addRenderer(new VideoRenderer(yourSurfaceView));
 
         audioSource = factory.createAudioSource(audioConstraints);
-        localAudioTrack = factory.createAudioTrack("101", audioSource);
+        localAudioTrack = factory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
     }
 
+    // creates video capturer from camera
     private VideoCapturer createVideoCapturer() {
         VideoCapturer videoCapturer;
         if (useCamera2()) {
@@ -173,6 +195,7 @@ public class CallActivity extends AppCompatActivity {
         return videoCapturer;
     }
 
+    // selects appropriate camera from device
     private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
         final String[] deviceNames = enumerator.getDeviceNames();
 
@@ -199,11 +222,13 @@ public class CallActivity extends AppCompatActivity {
         return null;
     }
 
+    // checks if camera2 APIs are supported
     private boolean useCamera2() {
         return Camera2Enumerator.isSupported(this);
     }
 
-    private void connectToSignallingServer() {
+    // establishes connection with the signalling server, connects to the socket
+    private void establishServerConnection() {
         try {
             socket = IO.socket(SOCKET_URL);
             setSignallingServerEventActions();
@@ -213,6 +238,7 @@ public class CallActivity extends AppCompatActivity {
         }
     }
 
+    // sets up events that should take place when a socket action is invoked
     private void setSignallingServerEventActions(){
         socket.on(EVENT_CONNECT, args -> {
             socket.emit("create or join", roomName);
@@ -238,43 +264,46 @@ public class CallActivity extends AppCompatActivity {
                 if (args[0] instanceof String) {
                     String message = (String) args[0];
                     if (message.equals("got user media")) {
-                        maybeStart();
+                        // if the media stream is recieved, attempt to start a connection
+                        performStartOnInitiator();
                     } else if(message.equals("bye")) {
+                        // if the remote user hung up the call, your side hangs up too
                         showToast("Call Hung Up!");
                         disconnectCall();
                     }
                 } else {
                     JSONObject message = (JSONObject) args[0];
                     if (message.getString("type").equals("offer")) {
-                        Log.d(TAG, "connectToSignallingServer: received an offer " + isInitiator + " " + isStarted);
                         if (!isInitiator && !isStarted) {
-                            maybeStart();
+                            performStartOnInitiator();
                         }
-                        peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(OFFER, message.getString("sdp")));
-                        doAnswer();
+                        // attempt to start a session as remote peer
+                        peerConnection.setRemoteDescription(new CustomSDPObserver(), new SessionDescription(OFFER, message.getString("sdp")));
+                        sendAnswer();
                     } else if (message.getString("type").equals("answer") && isStarted) {
-                        peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(ANSWER, message.getString("sdp")));
+                        // if answer is recieved, set description for remote client to current peer connection
+                        peerConnection.setRemoteDescription(new CustomSDPObserver(), new SessionDescription(ANSWER, message.getString("sdp")));
                     } else if (message.getString("type").equals("candidate") && isStarted) {
-                        Log.d(TAG, "connectToSignallingServer: receiving candidates");
+                        // if a new ice candidate comes, add new ice candidate to peer connection
                         IceCandidate candidate = new IceCandidate(message.getString("id"), message.getInt("label"), message.getString("candidate"));
                         peerConnection.addIceCandidate(candidate);
                     }
-
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }).on(EVENT_DISCONNECT, args -> {
-            Log.d(TAG, "connectToSignallingServer: disconnect");
+            // when socket disconnects, remove current room data from firebase
             roomConnectionViewModel.removeDataFromFirebase(roomName);
         });
     }
 
-    private void doAnswer() {
-        peerConnection.createAnswer(new SimpleSdpObserver() {
+    // sends answer message
+    private void sendAnswer() {
+        peerConnection.createAnswer(new CustomSDPObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new CustomSDPObserver(), sessionDescription);
                 JSONObject message = new JSONObject();
                 try {
                     message.put("type", "answer");
@@ -287,28 +316,27 @@ public class CallActivity extends AppCompatActivity {
         }, new MediaConstraints());
     }
 
-    private void maybeStart() {
-        Log.d(TAG, "maybeStart: " + isStarted + " " + isChannelReady);
+    // checks if user is initiator and channel is ready
+    private void performStartOnInitiator() {
         if (!isStarted && isChannelReady) {
             isStarted = true;
             if (isInitiator) {
-                doCall();
+                initCallByOffer();
             }
         }
     }
 
-    private void doCall() {
+    // initializes a new call by initiating an offer message
+    private void initCallByOffer() {
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
 
-        sdpMediaConstraints.mandatory.add(
-                new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        sdpMediaConstraints.mandatory.add(
-                new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-        peerConnection.createOffer(new SimpleSdpObserver() {
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+
+        peerConnection.createOffer(new CustomSDPObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
-                Log.d(TAG, "onCreateSuccess: ");
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new CustomSDPObserver(), sessionDescription);
                 JSONObject message = new JSONObject();
                 try {
                     message.put("type", "offer");
@@ -321,58 +349,70 @@ public class CallActivity extends AppCompatActivity {
         }, sdpMediaConstraints);
     }
 
+    // socket emits a message event
     private void sendMessage(Object message) {
         socket.emit("message", roomName, message);
     }
 
-    private void startStreamingVideo() {
+    // adds the local audio/video stream to peer connection
+    private void addStreamToPeerConnection() {
         MediaStream mediaStream = factory.createLocalMediaStream("ARDAMS");
         mediaStream.addTrack(videoTrackFromCamera);
         mediaStream.addTrack(localAudioTrack);
         peerConnection.addStream(mediaStream);
-
         sendMessage("got user media");
     }
 
-    private PeerConnection createPeerConnection(PeerConnectionFactory factory) {
+
+    private void setPeerConnectionFactory() {
+        PeerConnectionFactory.initializeAndroidGlobals(this, true, true, true);
+        factory = new PeerConnectionFactory(null);
+        factory.setVideoHwAccelerationOptions(eglBase.getEglBaseContext(), eglBase.getEglBaseContext());
+    }
+
+    private void initPeerConnection() {
+        peerConnection = createPeerConnectionFromFactory(factory);
+    }
+
+    // creates a new peer connection
+    private PeerConnection createPeerConnectionFromFactory(PeerConnectionFactory factory) {
         ArrayList<PeerConnection.IceServer> iceServers = new ArrayList<>();
         iceServers.add(new PeerConnection.IceServer(STUN_SERVER_URL));
 
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         MediaConstraints pcConstraints = new MediaConstraints();
 
-        PeerConnection.Observer pcObserver = new PeerConnection.Observer() {
+        return factory.createPeerConnection(rtcConfig, pcConstraints, getPeerConnectionObeserver());
+    }
+
+    // observes on peer connection change events and performs actions
+    private PeerConnection.Observer getPeerConnectionObeserver(){
+        PeerConnection.Observer observer = new PeerConnection.Observer() {
             @Override
             public void onSignalingChange(PeerConnection.SignalingState signalingState) {
-                Log.d(TAG, "onSignalingChange: ");
             }
 
             @Override
             public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
-                Log.d(TAG, "onIceConnectionChange: ");
             }
 
             @Override
             public void onIceConnectionReceivingChange(boolean b) {
-                Log.d(TAG, "onIceConnectionReceivingChange: ");
             }
 
             @Override
             public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
-                Log.d(TAG, "onIceGatheringChange: ");
             }
 
             @Override
             public void onIceCandidate(IceCandidate iceCandidate) {
-                Log.d(TAG, "onIceCandidate: ");
+                // if a new ice candidate comes, sends a new message with type "candidate"
                 JSONObject message = new JSONObject();
-
                 try {
                     message.put("type", "candidate");
                     message.put("label", iceCandidate.sdpMLineIndex);
                     message.put("id", iceCandidate.sdpMid);
                     message.put("candidate", iceCandidate.sdp);
-
                     sendMessage(message);
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -381,12 +421,11 @@ public class CallActivity extends AppCompatActivity {
 
             @Override
             public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
-                Log.d(TAG, "onIceCandidatesRemoved: ");
             }
 
             @Override
             public void onAddStream(MediaStream mediaStream) {
-                Log.d(TAG, "onAddStream: " + mediaStream.videoTracks.size());
+                // if new remote stream is added to peer connection, render it on friendSurfaceView
                 VideoTrack remoteVideoTrack = mediaStream.videoTracks.get(0);
                 AudioTrack remoteAudioTrack = mediaStream.audioTracks.get(0);
                 remoteAudioTrack.setEnabled(true);
@@ -396,33 +435,29 @@ public class CallActivity extends AppCompatActivity {
 
             @Override
             public void onRemoveStream(MediaStream mediaStream) {
-                Log.d(TAG, "onRemoveStream: ");
             }
 
             @Override
             public void onDataChannel(DataChannel dataChannel) {
-                Log.d(TAG, "onDataChannel: ");
             }
 
             @Override
             public void onRenegotiationNeeded() {
-                Log.d(TAG, "onRenegotiationNeeded: ");
             }
         };
-
-        return factory.createPeerConnection(rtcConfig, pcConstraints, pcObserver);
-    }
-
-    private void initializePeerConnections() {
-        peerConnection = createPeerConnection(factory);
+        return observer;
     }
 
     @Override
     protected void onDestroy() {
-        disconnectCall();
+        // When call destroys, redirect to the call ended activity
+        Intent intent = new Intent(this, CallEndedActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
         super.onDestroy();
     }
 
+    // shares the current room code across messaging services
     private void shareRoom(){
         Intent intent = new Intent();
         intent.setAction(Intent.ACTION_SEND);
@@ -432,18 +467,25 @@ public class CallActivity extends AppCompatActivity {
     }
 
     private void disconnectCall(){
+        // when disconnecting, always send a "bye" message to facilitate remote hangup
         if (socket != null) {
             sendMessage("bye");
             socket.disconnect();
         }
+        // cleanup tasks
         peerConnection.close();
-        Intent intent = new Intent(this, CallEndedActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(intent);
+        yourSurfaceView.release();
+        friendSurfaceView.release();
         finish();
     }
 
     private void showToast(String message){
         runOnUiThread(() -> Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show());
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        Toast.makeText(getApplicationContext(), "You can't go back, hangup to exit", Toast.LENGTH_SHORT).show();
     }
 }

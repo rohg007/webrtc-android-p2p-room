@@ -8,4 +8,5 @@ public interface Constants {
     int FPS = 30;
     String SOCKET_URL = "https://infinite-headland-53803.herokuapp.com/";
     String STUN_SERVER_URL = "stun:stun.l.google.com:19302";
+    String AUDIO_TRACK_ID = "101";
 }

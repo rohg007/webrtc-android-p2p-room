@@ -25,6 +25,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"/>
 
+            <TextView
+                android:id="@+id/your_name_tv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                tools:text="You"
+                android:textColor="@color/black"
+                android:textStyle="bold"/>
+
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
@@ -39,6 +48,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
+            <TextView
+                android:id="@+id/friend_name_tv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                tools:text="Friend" />
+
         </androidx.cardview.widget.CardView>
 
     </LinearLayout>
@@ -50,28 +68,6 @@
         android:layout_gravity="bottom|end"
         android:src="@android:drawable/ic_menu_share"
         android:layout_margin="8dp"/>
-
-    <TextView
-        android:id="@+id/your_name_tv"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_anchor="@id/your_surface"
-        app:layout_anchorGravity="center|end"
-        android:layout_margin="16dp"
-        tools:text="You"
-        android:textColor="@color/black"
-        android:textStyle="bold"/>
-
-    <TextView
-        android:id="@+id/friend_name_tv"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:textColor="@color/black"
-        android:textStyle="bold"
-        tools:text="Friend"
-        app:layout_anchor="@id/friend_surface"
-        app:layout_anchorGravity="center|end"/>
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/hangup_button"

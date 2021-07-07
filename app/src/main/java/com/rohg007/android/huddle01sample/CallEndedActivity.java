@@ -16,6 +16,7 @@ public class CallEndedActivity extends AppCompatActivity {
         Button backToMenuButton = findViewById(R.id.back_to_main_menu);
         backToMenuButton.setOnClickListener(view -> {
             Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(intent);
             finish();
         });

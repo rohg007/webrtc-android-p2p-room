@@ -7,17 +7,30 @@
     tools:context=".CallEndedActivity"
     android:orientation="vertical">
 
-    <ImageView
+    <com.airbnb.lottie.LottieAnimationView
+        android:layout_width="362dp"
+        android:layout_height="256dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        app:lottie_rawRes="@raw/over"
+        app:lottie_autoPlay="true"
+        app:lottie_loop="false"/>
+
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/callend"
-        android:scaleType="fitCenter"/>
+        android:text="Session Over"
+        android:textSize="28sp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        android:textStyle="bold"/>
 
     <Button
         android:id="@+id/back_to_main_menu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Back to Main Menu"
-        android:layout_gravity="center_horizontal"/>
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"/>
 
 </LinearLayout>

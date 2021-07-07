@@ -1,6 +1,7 @@
 package com.rohg007.android.huddle01sample.repositories;
 
 import android.app.Application;
+import android.os.Build;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -10,10 +11,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.rohg007.android.huddle01sample.models.Participant;
 import com.rohg007.android.huddle01sample.models.RoomConnection;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.lifecycle.MutableLiveData;
 
 public class RoomRepository {
@@ -31,13 +32,14 @@ public class RoomRepository {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if(snapshot.getValue() == null){
-                    RoomConnection roomConnection = new RoomConnection(participant, "");
+                    RoomConnection roomConnection = new RoomConnection();
+                    roomConnection.setParticipant1(new Participant(Build.ID, Build.DEVICE));
                     reference.child(room).setValue(roomConnection);
                 } else {
                     RoomConnection roomConnection = snapshot.getValue(RoomConnection.class);
                     assert roomConnection != null;
-                    if(roomConnection.getParticipant2().equals(""))
-                        roomConnection.setParticipant2(participant);
+                    if(roomConnection.getParticipant2()==null)
+                        roomConnection.setParticipant2(new Participant(Build.ID, Build.DEVICE));
                     reference.child(room).setValue(roomConnection);
                 }
             }

@@ -24,7 +24,7 @@ android {
     }
     sourceSets.main {
         jniLibs.srcDir 'libs'
-        jni.srcDirs = [] //disable automatic ndk-build call
+        jni.srcDirs = []
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -48,6 +48,7 @@ dependencies {
     implementation files('libs/libjingle_peerconnection.jar')
     implementation 'com.android.support:multidex:1.0.3'
     implementation 'com.google.firebase:firebase-database:19.7.0'
+    implementation "com.airbnb.android:lottie:3.6.0"
 
     testImplementation 'junit:junit:4.+'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'

@@ -3,7 +3,7 @@ package com.rohg007.android.huddle01sample;
 import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 
-class SimpleSdpObserver implements SdpObserver {
+class CustomSDPObserver implements SdpObserver {
 
     @Override
     public void onCreateSuccess(SessionDescription sessionDescription) {
