@@ -1,4 +1,4 @@
-# Huddle01Sample
+# WebRTC Android with P2P Room
 
 A WebRTC based P2P audio/video exchange client. 
 
